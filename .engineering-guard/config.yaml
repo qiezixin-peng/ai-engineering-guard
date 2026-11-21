@@ -21,6 +21,7 @@ analysis:
   minimum_confidence: 0.75
   ignore_paths:
     - ".gitignore"
+    - ".gitattributes"
 
 risk:
   default_level: L2
