@@ -275,6 +275,7 @@ regressions: []
     expect(timeoutRes.report.gate.outcome).toBe('error');
     expect(timeoutRes.report.results[0]!.disposition).toBe('execution_failed');
     expect(timeoutRes.report.results[0]!.status).toBe('timeout');
+    expect(timeoutRes.report.results[0]!.durationMs).toBeLessThan(2000);
   });
 
   it('returns exit code 5 (incomplete) when a required suite is blocked by platform mismatch', async () => {

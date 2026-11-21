@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isSubpath, parseDurationMs, sha256 } from '../../domain/hash.js';
@@ -55,6 +55,7 @@ export interface CommandRunOptions {
   maxExcerptBytes?: number;
   maxLogBytes?: number;
   signal?: AbortSignal;
+  taskkillExecutable?: string;
 }
 
 export interface CommandExecutionOutput {
@@ -106,35 +107,89 @@ export function resolveCommandForPlatform(
   return { command: executable, args, shell: false };
 }
 
-export function killProcessTree(pid: number): void {
+export interface KillProcessTreeOptions {
+  taskkillExecutable?: string;
+}
+
+/**
+ * Terminates a child process and its process tree across Windows and POSIX,
+ * including restricted Agent sandboxes (e.g. Codex Windows sandbox) where `taskkill.exe`
+ * may fail or lack process-enumeration permissions.
+ *
+ * Strategy:
+ * 1. Immediately terminate the direct child handle via `child.kill('SIGKILL')` / `process.kill(pid)`
+ *    (uses Node's owned Win32 process handle `TerminateProcess`, which works even when `taskkill` is blocked).
+ * 2. In parallel, dispatch non-blocking `taskkill /PID <pid> /T /F` (Windows) or process-group kill (`-pid` on POSIX)
+ *    to reap any grandchildren without blocking the event loop.
+ */
+export function killProcessTree(
+  pid: number,
+  child?: ChildProcess,
+  options?: KillProcessTreeOptions,
+): void {
+  if (child) {
+    try {
+      child.kill('SIGKILL');
+    } catch {
+      try {
+        child.kill();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   if (!pid || pid <= 0) return;
-  try {
-    if (process.platform === 'win32') {
-      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+
+  if (process.platform === 'win32') {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      try {
+        process.kill(pid);
+      } catch {
+        // process may have already exited via child.kill
+      }
+    }
+
+    // Best-effort non-blocking tree sweep for grandchildren
+    try {
+      const taskkillBin = options?.taskkillExecutable ?? 'taskkill';
+      const killer = spawn(taskkillBin, ['/PID', String(pid), '/T', '/F'], {
         windowsHide: true,
         stdio: 'ignore',
       });
-    } else {
-      try {
-        process.kill(-pid, 'SIGTERM');
-      } catch {
-        process.kill(pid, 'SIGTERM');
-      }
-      setTimeout(() => {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch {
-          try {
-            process.kill(pid, 'SIGKILL');
-          } catch {
-            // already dead
-          }
-        }
-      }, 250).unref();
+      killer.on('error', () => {
+        // Ignore taskkill spawn failure in restricted Windows sandboxes; direct handle kill already ran
+      });
+      killer.unref();
+    } catch {
+      // Ignore synchronous spawn rejection in restricted sandboxes
     }
-  } catch {
-    // process may have already exited
+    return;
   }
+
+  // POSIX process-group + direct PID termination
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      // ignore
+    }
+  }
+  setTimeout(() => {
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // already dead
+      }
+    }
+  }, 100).unref();
 }
 
 export async function runStructuredCommand(options: CommandRunOptions): Promise<CommandExecutionOutput> {
@@ -185,12 +240,15 @@ export async function runStructuredCommand(options: CommandRunOptions): Promise<
   return new Promise<CommandExecutionOutput>((resolve) => {
     let timedOut = false;
     let cancelled = false;
+    let settled = false;
+    let forceSettleTimer: NodeJS.Timeout | undefined;
     let spawnErr: Error | undefined;
     let capturedBytes = 0;
     let truncated = false;
     const chunks: string[] = [];
 
     const appendChunk = (chunk: Buffer | string) => {
+      if (settled) return;
       const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
       if (capturedBytes >= maxLogBytes) {
         truncated = true;
@@ -219,36 +277,22 @@ export async function runStructuredCommand(options: CommandRunOptions): Promise<
     child.stdout?.on('data', appendChunk);
     child.stderr?.on('data', appendChunk);
 
-    const timer = setTimeout(() => {
-      timedOut = true;
-      if (child.pid) {
-        killProcessTree(child.pid);
-      }
-    }, timeoutMs);
-
-    const onAbort = () => {
-      cancelled = true;
-      if (child.pid) {
-        killProcessTree(child.pid);
-      }
-    };
-
-    if (options.signal) {
-      if (options.signal.aborted) {
-        onAbort();
-      } else {
-        options.signal.addEventListener('abort', onAbort, { once: true });
-      }
-    }
-
-    child.on('error', (err) => {
-      spawnErr = err;
-      appendChunk(`\n[AEG SPAWN ERROR] ${err.message}\n`);
-    });
-
-    child.on('close', (code) => {
+    const finalize = (code: number | null) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      if (forceSettleTimer) clearTimeout(forceSettleTimer);
       options.signal?.removeEventListener('abort', onAbort);
+
+      if (timedOut || cancelled) {
+        try {
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          child.unref();
+        } catch {
+          // ignore pipe cleanup errors
+        }
+      }
 
       const finishedMs = Date.now();
       const finishedAt = new Date(finishedMs).toISOString();
@@ -299,6 +343,50 @@ export async function runStructuredCommand(options: CommandRunOptions): Promise<
         logArtifactPath,
         failureDetails,
       });
+    };
+
+    const scheduleForceSettle = () => {
+      if (forceSettleTimer || settled) return;
+      // Guarantee prompt completion in restricted sandboxes even if a grandchild keeps stdio handles open
+      forceSettleTimer = setTimeout(() => {
+        finalize(null);
+      }, 150);
+      forceSettleTimer.unref?.();
+    };
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child.pid ?? 0, child, { taskkillExecutable: options.taskkillExecutable });
+      scheduleForceSettle();
+    }, timeoutMs);
+
+    const onAbort = () => {
+      cancelled = true;
+      killProcessTree(child.pid ?? 0, child, { taskkillExecutable: options.taskkillExecutable });
+      scheduleForceSettle();
+    };
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        onAbort();
+      } else {
+        options.signal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
+
+    child.on('error', (err) => {
+      spawnErr = err;
+      appendChunk(`\n[AEG SPAWN ERROR] ${err.message}\n`);
+    });
+
+    child.on('exit', (code) => {
+      if (timedOut || cancelled) {
+        finalize(code);
+      }
+    });
+
+    child.on('close', (code) => {
+      finalize(code);
     });
   });
 }

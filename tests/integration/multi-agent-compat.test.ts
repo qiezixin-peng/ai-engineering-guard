@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { runStructuredCommand } from '../../src/adapters/command/command-runner.js';
 import { generateAgentConfigBundle, installRepoAgentInstructions } from '../../src/cli/agents.js';
 import { PACKAGE_ROOT } from '../../src/config/schema-validator.js';
 import { runQualityPipeline } from '../../src/engine.js';
@@ -159,5 +160,29 @@ describe('Universal Multi-Agent Compatibility (Gemini / Codex / DeepSeek / Claud
     } finally {
       child.kill();
     }
+  });
+
+  it('terminates 300ms timed-out process in < 1000ms even when taskkill fails in a restricted Windows sandbox', async () => {
+    const dir = createGitRepo('aeg-sandbox-timeout-');
+    const t0 = performance.now();
+    const out = await runStructuredCommand({
+      workspaceRoot: dir,
+      suiteId: 'sandbox-timeout-suite',
+      framework: 'command',
+      command: {
+        executable: process.execPath,
+        args: ['-e', 'setTimeout(() => {}, 15000)'],
+        cwd: '.',
+        timeout: '300ms',
+      },
+      artifactDir: path.join(dir, '.aeg/logs'),
+      // Simulate restricted sandbox where taskkill.exe is blocked or missing
+      taskkillExecutable: 'taskkill-blocked-in-sandbox-nonexistent',
+    });
+    const elapsedMs = performance.now() - t0;
+
+    expect(out.status).toBe('timeout');
+    expect(out.durationMs).toBeLessThan(1200);
+    expect(elapsedMs).toBeLessThan(1500);
   });
 });
