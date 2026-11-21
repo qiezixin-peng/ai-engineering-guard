@@ -1,0 +1,17 @@
+# GitLab CI template for AI Engineering Guard (AEG)
+stages:
+  - quality
+
+aeg_quality_gate:
+  stage: quality
+  image: node:22-slim
+  variables:
+    GIT_DEPTH: "0"
+  script:
+    - aeg gate --base "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}" --policy pull-request --mode balanced --format agent-summary --junit .aeg/reports/aeg-junit.xml --sarif .aeg/reports/aeg.sarif
+  artifacts:
+    when: always
+    reports:
+      junit: .aeg/reports/aeg-junit.xml
+    paths:
+      - .aeg/reports/

@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-engineering-guard.dev/schemas/config.v1.schema.json",
+  "title": "AEG Project Configuration",
+  "type": "object",
+  "required": ["schema_version", "project"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "project": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "baseline_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_mode": {
+          "type": "string",
+          "enum": ["fast", "balanced", "deep", "release"],
+          "default": "balanced"
+        },
+        "auto_escalate": {
+          "type": "boolean",
+          "default": true
+        },
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fast": { "$ref": "#/definitions/budget" },
+            "balanced": { "$ref": "#/definitions/budget" },
+            "deep": { "$ref": "#/definitions/budget" },
+            "release": { "$ref": "#/definitions/budget" }
+          }
+        },
+        "providers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "oneOf": [
+                  { "type": "boolean" },
+                  { "type": "string", "enum": ["auto"] }
+                ]
+              },
+              "modes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["fast", "balanced", "deep", "release"]
+                }
+              },
+              "detects": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "distribution": {
+                "type": "string",
+                "enum": ["builtin", "user-installed", "optional-package"]
+              }
+            }
+          }
+        },
+        "minimum_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.75
+        },
+        "doc_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ignore_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_level": {
+          "type": "string",
+          "enum": ["L0", "L1", "L2", "L3", "L4"],
+          "default": "L2"
+        },
+        "protected_modules": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["L0", "L1", "L2", "L3", "L4"]
+          }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "backend": { "type": "string", "enum": ["local", "remote-dir", "remote-http"], "default": "local" },
+        "directory": { "type": "string", "default": ".aeg/cache" },
+        "cross_platform": { "type": "boolean", "default": false },
+        "exact_tree": { "type": "boolean", "default": true },
+        "max_size_mb": { "type": "integer", "minimum": 1, "default": 256 },
+        "suite_fingerprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["disabled", "shadow", "enabled"],
+              "default": "disabled"
+            }
+          }
+        },
+        "remote": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string" },
+            "directory": { "type": "string" },
+            "tenant_id": { "type": "string", "default": "default" },
+            "read_only": { "type": "boolean", "default": true },
+            "require_signature": { "type": "boolean", "default": true },
+            "timeout": { "type": "string", "default": "2s" }
+          }
+        }
+      }
+    },
+    "shadow_tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schedule": { "type": "string" },
+        "sample_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "max_duration": { "type": "string" },
+        "weekly_budget": { "type": "string" }
+      }
+    },
+    "agent_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_view": {
+          "type": "string",
+          "enum": ["agent-summary", "failure-details", "full-artifact"],
+          "default": "agent-summary"
+        },
+        "max_failure_excerpt_bytes": {
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 262144,
+          "default": 16384
+        },
+        "max_auto_expansions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20,
+          "default": 3
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "block_on": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "require_clean_worktree": { "type": "boolean" },
+          "require_approval_on": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_duration": { "type": "string" },
+        "max_memory": { "type": "string" }
+      }
+    }
+  }
+}

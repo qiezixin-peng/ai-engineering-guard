@@ -1,0 +1,55 @@
+name: 'AI Engineering Guard'
+description: 'Run deterministic engineering quality analysis, deduplicated test execution, and quality gate checks.'
+
+inputs:
+  command:
+    description: 'AEG command to execute (check | gate | analyze | plan-tests)'
+    required: false
+    default: 'gate'
+  policy:
+    description: 'Quality gate policy (local | commit | pull-request | delivery | release)'
+    required: false
+    default: 'pull-request'
+  mode:
+    description: 'Analysis mode (fast | balanced | deep | release)'
+    required: false
+    default: 'balanced'
+  base:
+    description: 'Base Git revision (e.g. origin/main)'
+    required: false
+    default: ''
+  format:
+    description: 'Primary stdout format (text | json | agent-summary | sarif | junit)'
+    required: false
+    default: 'agent-summary'
+  sarif-output:
+    description: 'Optional file path to write SARIF 2.1.0 report'
+    required: false
+    default: ''
+  junit-output:
+    description: 'Optional file path to write JUnit XML report'
+    required: false
+    default: ''
+  aeg-path:
+    description: 'Path to ai-engineering-guard checkout or binary (defaults to global aeg)'
+    required: false
+    default: 'aeg'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run AI Engineering Guard
+      shell: bash
+      run: |
+        set -euo pipefail
+        ARGS=("${{ inputs.command }}" "--policy" "${{ inputs.policy }}" "--mode" "${{ inputs.mode }}" "--format" "${{ inputs.format }}")
+        if [ -n "${{ inputs.base }}" ]; then
+          ARGS+=("--base" "${{ inputs.base }}")
+        fi
+        if [ -n "${{ inputs.sarif-output }}" ]; then
+          ARGS+=("--sarif" "${{ inputs.sarif-output }}")
+        fi
+        if [ -n "${{ inputs.junit-output }}" ]; then
+          ARGS+=("--junit" "${{ inputs.junit-output }}")
+        fi
+        ${{ inputs.aeg-path }} "${ARGS[@]}"

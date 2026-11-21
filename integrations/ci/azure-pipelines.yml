@@ -1,0 +1,34 @@
+# Azure DevOps Pipeline template for AI Engineering Guard (AEG)
+trigger:
+  - main
+
+pr:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '22.x'
+
+  - script: |
+      aeg gate \
+        --base "origin/main" \
+        --policy pull-request \
+        --mode balanced \
+        --format agent-summary \
+        --junit .aeg/reports/aeg-junit.xml \
+        --sarif .aeg/reports/aeg.sarif
+    displayName: 'Run AI Engineering Guard Quality Gate'
+
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '.aeg/reports/aeg-junit.xml'
+      testRunTitle: 'AI Engineering Guard'

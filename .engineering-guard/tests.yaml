@@ -1,0 +1,97 @@
+schema_version: 1
+
+suites:
+  typecheck:
+    framework: command
+    command:
+      executable: npm
+      args: [run, typecheck]
+      cwd: .
+      timeout: 3m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [domain, adapters, config, analyze, cache, plan, run, gate, report, cli]
+    level: static
+    critical: true
+    cache:
+      enabled: true
+      cross_commit: disabled
+      hermetic: true
+    platforms: [windows, linux, macos]
+    execution: once_per_change
+    portable: true
+    canonical_platform: linux
+
+  unit:
+    framework: vitest
+    command:
+      executable: npm
+      args: [run, test:unit]
+      cwd: .
+      timeout: 5m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [domain, adapters, config, analyze, cache, plan, gate, report]
+    level: unit
+    critical: true
+    cache:
+      enabled: true
+      cross_commit: disabled
+      hermetic: true
+    platforms: [windows, linux, macos]
+    execution: once_per_change
+    portable: true
+    canonical_platform: linux
+
+  integration:
+    framework: vitest
+    command:
+      executable: npm
+      args: [run, test:integration]
+      cwd: .
+      timeout: 5m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [adapters, config, run, gate, report, cli]
+    level: integration
+    critical: true
+    depends_on: [unit]
+    cache:
+      enabled: true
+      cross_commit: disabled
+      hermetic: false
+    platforms: [windows, linux, macos]
+    execution: each_platform
+
+  golden:
+    framework: vitest
+    command:
+      executable: npm
+      args: [run, test:golden]
+      cwd: .
+      timeout: 5m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [analyze, plan, gate, cli]
+    level: integration
+    critical: true
+    cache:
+      enabled: true
+      cross_commit: disabled
+      hermetic: true
+    platforms: [windows, linux, macos]
+    execution: once_per_change
+    portable: true
+    canonical_platform: linux
+
+  benchmark:
+    framework: vitest
+    command:
+      executable: npm
+      args: [run, test:bench]
+      cwd: .
+      timeout: 5m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [analyze, plan, cli]
+    level: e2e
+    cache: false
+    platforms: [windows, linux, macos]
+    execution: each_platform
+
+regressions: []

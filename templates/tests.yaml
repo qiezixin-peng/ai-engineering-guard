@@ -1,0 +1,24 @@
+schema_version: 1
+
+suites:
+  unit:
+    framework: command
+    command:
+      executable: npm
+      args: [test]
+      cwd: .
+      timeout: 10m
+      environment_allowlist: [CI, NODE_ENV]
+    covers: [core]
+    level: unit
+    critical: true
+    cache:
+      enabled: true
+      cross_commit: disabled
+      hermetic: false
+    platforms: [windows, linux, macos]
+    execution: once_per_change
+    portable: true
+    canonical_platform: linux
+
+regressions: []

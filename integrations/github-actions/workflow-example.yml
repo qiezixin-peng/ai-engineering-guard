@@ -1,0 +1,39 @@
+name: Engineering Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Untrusted stage: runs with ZERO production secrets (safe for external Fork PRs)
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 pinned to full commit SHA
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad7ff0ed4d3fdee5af # v4.1.0 pinned to full commit SHA
+        with:
+          node-version: '22'
+
+      # Pin central AEG Action to a full commit SHA in production repositories
+      - name: Run AEG Pull-Request Gate
+        run: |
+          aeg gate \
+            --base "origin/${{ github.base_ref }}" \
+            --policy pull-request \
+            --mode balanced \
+            --format agent-summary \
+            --sarif .aeg/reports/aeg.sarif \
+            --junit .aeg/reports/aeg-junit.xml
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always() && hashFiles('.aeg/reports/aeg.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .aeg/reports/aeg.sarif

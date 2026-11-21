@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-engineering-guard.dev/schemas/report.v1.schema.json",
+  "title": "AEG Quality Report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "aegVersion",
+    "createdAt",
+    "mode",
+    "policy",
+    "environment",
+    "changeSet",
+    "impact",
+    "risk",
+    "plan",
+    "gate",
+    "agentSummary"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "runId": { "type": "string" },
+    "aegVersion": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "mode": { "type": "string", "enum": ["fast", "balanced", "deep", "release"] },
+    "policy": { "type": "string" },
+    "gate": {
+      "type": "object",
+      "required": ["outcome", "workflowAction", "policy", "reasons", "requiredActions", "evidenceRefs"],
+      "properties": {
+        "outcome": { "type": "string", "enum": ["passed", "failed", "incomplete", "error"] },
+        "workflowAction": { "type": "string", "enum": ["continue", "require_approval", "block"] },
+        "policy": { "type": "string" },
+        "reasons": { "type": "array" },
+        "requiredActions": { "type": "array", "items": { "type": "string" } },
+        "evidenceRefs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "agentSummary": {
+      "type": "object",
+      "required": ["outcome", "workflow_action", "changed_modules", "risk", "tests", "regressions", "agent_action", "artifact_refs"]
+    }
+  }
+}

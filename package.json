@@ -1,0 +1,75 @@
+{
+  "name": "ai-engineering-guard",
+  "version": "0.0.1",
+  "description": "Lightweight, high-capability adaptive engineering quality decision & gate engine for developers, CI, Durable Pi, and all AI Agents (DeepSeek, Gemini, Codex, Claude).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qiezixin-peng/ai-engineering-guard.git"
+  },
+  "homepage": "https://github.com/qiezixin-peng/ai-engineering-guard#readme",
+  "bugs": {
+    "url": "https://github.com/qiezixin-peng/ai-engineering-guard/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "aeg": "./bin/aeg.js",
+    "aeg-mcp": "./bin/aeg-mcp.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "rules/",
+    "schemas/",
+    "templates/",
+    "integrations/",
+    "AGENTS.md",
+    "GEMINI.md",
+    "CLAUDE.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:golden": "vitest run tests/golden",
+    "test:bench": "vitest run tests/benchmark",
+    "typecheck": "tsc --noEmit",
+    "check:self": "node ./bin/aeg.js check"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "picomatch": "^4.0.2",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/picomatch": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  },
+  "keywords": [
+    "engineering-quality",
+    "quality-gate",
+    "test-selection",
+    "ai-agent",
+    "codex",
+    "gemini",
+    "deepseek",
+    "ci",
+    "cli"
+  ]
+}

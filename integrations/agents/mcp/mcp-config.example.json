@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ai-engineering-guard": {
+      "command": "node",
+      "args": ["<path-to-ai-engineering-guard>/bin/aeg-mcp.js"],
+      "description": "Universal, model-agnostic AI Engineering Guard (AEG) MCP Server for Gemini/Antigravity, Codex, DeepSeek MCP clients, Claude Code, and Durable Pi. Run `aeg agents config` to generate exact paths for your machine."
+    }
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.aeg/
+__pycache__/
+*.pyc
+*.tgz
+.DS_Store
+Thumbs.db
+coverage/

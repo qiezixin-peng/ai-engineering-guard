@@ -1,0 +1,82 @@
+schema_version: 1
+
+modules:
+  domain:
+    paths:
+      - src/domain/**
+    depends_on: []
+    criticality: high
+    public_api_paths:
+      - src/domain/types.ts
+    contracts: [aeg-domain-schema]
+
+  adapters:
+    paths:
+      - src/adapters/**
+    depends_on: [domain]
+    criticality: high
+
+  config:
+    paths:
+      - src/config/**
+      - schemas/**
+      - rules/**
+      - templates/**
+      - package.json
+      - tsconfig.json
+      - vitest.config.ts
+    depends_on: [domain, adapters]
+    criticality: critical
+
+  analyze:
+    paths:
+      - src/analyze/**
+    depends_on: [domain, config]
+    criticality: high
+
+  cache:
+    paths:
+      - src/cache/**
+    depends_on: [domain]
+    criticality: high
+
+  plan:
+    paths:
+      - src/plan/**
+    depends_on: [domain, analyze, cache]
+    criticality: high
+
+  report:
+    paths:
+      - src/report/**
+      - src/metrics/**
+      - src/dashboard/**
+    depends_on: [domain, adapters]
+    criticality: normal
+
+  run:
+    paths:
+      - src/run/**
+      - src/shadow/**
+    depends_on: [domain, adapters, cache]
+    criticality: high
+
+  gate:
+    paths:
+      - src/gate/**
+      - src/aggregate/**
+    depends_on: [domain, config, plan, run]
+    criticality: critical
+
+  cli:
+    paths:
+      - src/cli/**
+      - src/mcp/**
+      - src/engine.ts
+      - src/index.ts
+      - bin/**
+      - integrations/**
+    depends_on: [domain, adapters, config, analyze, cache, plan, run, gate, report]
+    criticality: high
+    public_api_paths:
+      - src/index.ts

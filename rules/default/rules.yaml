@@ -1,0 +1,82 @@
+schema_version: 1
+
+# Central non-overridable safety baseline rules
+central_rules:
+  require_schema_validation: true
+  require_cache_integrity: true
+  require_structured_commands: true
+  forbid_candidate_policy_relaxation: true
+  forbid_silent_unknown_pass: true
+  non_overridable_high_risk_categories:
+    - database_migration
+    - security_auth
+    - release_signing
+    - guard_config_change
+    - candidate_policy_relaxation
+
+# Deterministic risk classification defaults
+default_risk_rules:
+  - id: docs-only
+    min_level: L0
+    description: Pure documentation or non-runtime comment/doc changes with trusted classification
+    required_checks: [static]
+
+  - id: local-internal-change
+    min_level: L1
+    description: Single non-critical module internal implementation change
+    required_checks: [unit]
+
+  - id: standard-feature-change
+    min_level: L2
+    description: Multi-file or standard functional change
+    required_checks: [unit, integration]
+
+  - id: public-api-or-multi-downstream
+    min_level: L3
+    description: Public API contract change or multiple downstream modules affected
+    required_checks: [unit, integration, e2e]
+
+  - id: high-sensitivity-change
+    min_level: L4
+    description: Database migration, authentication/security, secrets, release signing, or quality policy change
+    required_checks: [unit, integration, e2e, security, manual_review]
+
+default_doc_patterns:
+  - "**/*.md"
+  - "**/*.txt"
+  - "docs/**"
+  - "LICENSE*"
+
+default_db_migration_patterns:
+  - "**/migrations/**"
+  - "**/migrate/**"
+  - "**/*.sql"
+  - "**/schema.prisma"
+  - "**/drizzle/**"
+
+default_security_auth_patterns:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/rbac/**"
+  - "**/permissions/**"
+  - "**/oauth/**"
+  - "**/*secret*"
+  - "**/*credential*"
+  - "**/*token*"
+
+default_release_signing_patterns:
+  - "**/*codesign*"
+  - "**/*signing*"
+  - "**/release/**"
+  - ".github/workflows/**"
+  - ".gitlab-ci.yml"
+
+default_lockfile_patterns:
+  - "package-lock.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
+  - "poetry.lock"
+  - "uv.lock"
+  - "Cargo.lock"
+  - "go.sum"
+  - "requirements*.txt"

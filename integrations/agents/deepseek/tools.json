@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "description": "OpenAI/DeepSeek function-calling tool definitions for AI Engineering Guard (AEG)",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_check",
+        "description": "Run AI Engineering Guard quality check (diff -> impact -> risk -> deduplicated test plan -> exact cache -> test execution -> quality gate) and return the minimal token-efficient agent-summary JSON.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cwd": { "type": "string", "description": "Target repository root directory" },
+            "mode": { "type": "string", "enum": ["fast", "balanced", "deep", "release"], "default": "balanced" },
+            "policy": { "type": "string", "enum": ["local", "commit", "pull-request", "delivery", "release"], "default": "local" },
+            "base": { "type": "string", "description": "Optional base Git ref, e.g. origin/main" },
+            "plan_only": { "type": "boolean", "default": false },
+            "no_cache": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_explain_risk",
+        "description": "Explain why the current change received its deterministic L0-L4 risk level.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cwd": { "type": "string" },
+            "base": { "type": "string" },
+            "mode": { "type": "string", "enum": ["fast", "balanced", "deep", "release"] }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_explain_test",
+        "description": "Explain why a specific test suite was selected, cached, blocked, or marked not_required.",
+        "parameters": {
+          "type": "object",
+          "required": ["suite_id"],
+          "properties": {
+            "cwd": { "type": "string" },
+            "suite_id": { "type": "string" },
+            "base": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_inspect_failure",
+        "description": "Fetch structured failure details from the latest AEG run (progressive disclosure).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cwd": { "type": "string" },
+            "failure_id": { "type": "string" },
+            "run_id": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_inspect_log",
+        "description": "Read a bounded, secret-redacted log slice for a failed test suite artifact.",
+        "parameters": {
+          "type": "object",
+          "required": ["failure_id"],
+          "properties": {
+            "cwd": { "type": "string" },
+            "failure_id": { "type": "string" },
+            "start_line": { "type": "integer", "default": 1 },
+            "lines": { "type": "integer", "default": 80 }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "aeg_config_validate",
+        "description": "Validate .engineering-guard/{config,modules,tests}.yaml against JSON Schema and cross-references.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cwd": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}
