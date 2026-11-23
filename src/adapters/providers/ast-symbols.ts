@@ -1,17 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import picomatch from 'picomatch';
-import type {
-  ImpactProvider,
-  ImpactProviderInput,
-  ImpactProviderOutput,
-} from '../../analyze/capability-planner.js';
 import { normalizePosixPath, sha256 } from '../../domain/hash.js';
 import {
   AEG_VERSION,
   type AnalysisMode,
   type EvidenceEnvelope,
   type ImpactEvidence,
+  type ImpactProvider,
+  type ImpactProviderInput,
+  type ImpactProviderOutput,
   type SymbolRef,
 } from '../../domain/types.js';
 

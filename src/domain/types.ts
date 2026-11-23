@@ -243,6 +243,44 @@ export interface EvidenceEnvelope<T> {
   warnings: string[];
 }
 
+export type EvidenceCategory =
+  | 'module_graph'
+  | 'build_graph'
+  | 'import_relation'
+  | 'symbol_graph'
+  | 'coverage_map'
+  | 'contract_db';
+
+export interface ImpactProviderInput {
+  workspaceRoot: string;
+  changeSet: ChangeSet;
+  config: AegConfig;
+  modules: ModulesConfig;
+  mode: AnalysisMode;
+}
+
+export interface ImpactProviderOutput {
+  directlyChangedModules: string[];
+  transitivelyAffectedModules: string[];
+  affectedSymbols: SymbolRef[];
+  affectedContracts: string[];
+  affectedDataModels: string[];
+  unclassifiedFiles: string[];
+  evidence: ImpactEvidence[];
+  unknowns: string[];
+}
+
+export interface ImpactProvider {
+  readonly id: string;
+  readonly version: string;
+  readonly category: EvidenceCategory;
+  readonly supportedModes: AnalysisMode[];
+  readonly estimatedCostMs: number;
+  readonly priority: number;
+  isAvailable(input: ImpactProviderInput): boolean;
+  analyze(input: ImpactProviderInput): Promise<EvidenceEnvelope<ImpactProviderOutput>>;
+}
+
 export interface DiffHunk {
   oldStart: number;
   oldLines: number;

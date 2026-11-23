@@ -1,8 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { AEG_VERSION, type RiskLevel } from '../domain/types.js';
-import { computeSuiteFailureRates, loadRunHistory, type HistoryRecord } from '../metrics/history.js';
-import { loadShadowAuditSummary, type ShadowAuditSummary } from '../shadow/shadow-runner.js';
+import {
+  computeSuiteFailureRates,
+  loadRunHistory,
+  loadShadowAuditSummary,
+  type HistoryRecord,
+  type ShadowAuditSummary,
+} from '../metrics/history.js';
 
 export interface ProjectDashboardSummary {
   projectName: string;

@@ -216,40 +216,4 @@ export async function runBudgetedShadowCheck(params: {
   };
 }
 
-export type ShadowAuditSummary = {
-  totalShadowRuns: number;
-  totalMissedFailures: number;
-  averageRecall: number | null;
-};
-
-export function loadShadowAuditSummary(workspaceRoot: string): ShadowAuditSummary {
-  const p = path.join(workspaceRoot, '.aeg', 'metrics', 'shadow-audit.jsonl');
-  if (!fs.existsSync(p)) {
-    return { totalShadowRuns: 0, totalMissedFailures: 0, averageRecall: null };
-  }
-  let runs = 0;
-  let missed = 0;
-  let recallSum = 0;
-  let recallCount = 0;
-  for (const line of fs.readFileSync(p, 'utf8').split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    try {
-      const rec = JSON.parse(line) as { missedFailures?: unknown[]; recall?: number | null };
-      runs += 1;
-      missed += rec.missedFailures?.length ?? 0;
-      if (typeof rec.recall === 'number') {
-        recallSum += rec.recall;
-        recallCount += 1;
-      }
-    } catch {
-      // skip
-    }
-  }
-  return {
-    totalShadowRuns: runs,
-    totalMissedFailures: missed,
-    averageRecall: recallCount > 0 ? Number((recallSum / recallCount).toFixed(4)) : null,
-  };
-}
-
 export type { QualityReport };

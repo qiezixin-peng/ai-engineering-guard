@@ -1,15 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import type {
-  ImpactProvider,
-  ImpactProviderInput,
-  ImpactProviderOutput,
-} from '../../analyze/capability-planner.js';
 import { sha256 } from '../../domain/hash.js';
 import {
   AEG_VERSION,
   type AnalysisMode,
   type EvidenceEnvelope,
   type ImpactEvidence,
+  type ImpactProvider,
+  type ImpactProviderInput,
+  type ImpactProviderOutput,
 } from '../../domain/types.js';
 
 /**
