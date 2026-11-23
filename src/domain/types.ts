@@ -102,6 +102,18 @@ export interface AegConfig {
     max_auto_expansions?: number;
   };
   gates?: Record<string, GateRuleConfig>;
+  architecture?: {
+    enabled?: boolean;
+    max_file_lines?: number;
+    max_exports_per_file?: number;
+    forbid_undeclared_imports?: boolean;
+    forbid_cycles?: boolean;
+    rules?: {
+      frontend_antipatterns?: boolean;
+      backend_antipatterns?: boolean;
+    };
+    handbook_refs?: string[];
+  };
 }
 
 export interface ModuleDef {
@@ -505,6 +517,29 @@ export interface GateDecision {
   evidenceRefs: string[];
 }
 
+export interface ArchitectureFinding {
+  ruleId: string;
+  severity: 'info' | 'warning' | 'error';
+  category: 'boundary' | 'bloat' | 'frontend' | 'backend' | 'maintainability';
+  file: string;
+  line?: number;
+  message: string;
+  betterApproach: string;
+}
+
+export interface ArchitectureAuditResult {
+  scope: 'incremental' | 'full';
+  scannedFiles: number;
+  findings: ArchitectureFinding[];
+  externalToolsDetected: string[];
+  summary: {
+    errors: number;
+    warnings: number;
+    info: number;
+  };
+  handbookRefs: string[];
+}
+
 export interface AgentSummary {
   run_id: string;
   outcome: GateDecision['outcome'];
@@ -532,6 +567,7 @@ export interface AgentSummary {
   };
   unknowns: string[];
   policy_relaxations: string[];
+  architecture_hints?: ArchitectureFinding[];
   failures: Array<{
     id: string;
     suite_id: string;
@@ -580,6 +616,7 @@ export interface QualityReport {
   risk: RiskAssessment;
   plan: TestPlan;
   results: SuiteRunResult[];
+  architectureAudit?: ArchitectureAuditResult;
   gate: GateDecision;
   agentSummary: AgentSummary;
 }

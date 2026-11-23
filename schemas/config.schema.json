@@ -204,6 +204,30 @@
           }
         }
       }
+    },
+    "architecture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "max_file_lines": { "type": "integer", "minimum": 50, "default": 450 },
+        "max_exports_per_file": { "type": "integer", "minimum": 3, "default": 18 },
+        "forbid_undeclared_imports": { "type": "boolean", "default": false },
+        "forbid_cycles": { "type": "boolean", "default": true },
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frontend_antipatterns": { "type": "boolean", "default": true },
+            "backend_antipatterns": { "type": "boolean", "default": true }
+          }
+        },
+        "handbook_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
     }
   },
   "definitions": {

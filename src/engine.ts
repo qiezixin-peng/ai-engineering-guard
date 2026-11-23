@@ -15,6 +15,7 @@ import {
   runImpactAnalysis,
 } from './analyze/impact-analyzer.js';
 import { assessRisk } from './analyze/risk-engine.js';
+import { runArchitectureAudit } from './audit/architecture-audit.js';
 import { CacheEngine } from './cache/cache-engine.js';
 import { RemoteCacheClient } from './cache/remote-cache.js';
 import { registerIntegratedProject, syncManagedAgentInstructionsIfPresent } from './cli/agents.js';
@@ -300,6 +301,20 @@ export async function runQualityPipeline(options: PipelineOptions): Promise<Pipe
   });
   const gateMs = Date.now() - gateStart;
 
+  // 7b. Fast incremental architecture & anti-pattern check (balanced/deep/release, non-blocking hints)
+  const archEnabled = effectiveBundle.config.architecture?.enabled !== false && effectiveMode !== 'fast';
+  const architectureAudit = archEnabled
+    ? runArchitectureAudit({
+        workspaceRoot,
+        config: effectiveBundle.config,
+        modules: effectiveBundle.modules,
+        scope: 'incremental',
+        targetFiles: changeSet.files
+          .filter((f) => f.changeType !== 'deleted')
+          .map((f) => f.path),
+      })
+    : undefined;
+
   // 8. Minimal Agent Summary & Full Report
   const agentSummary = buildAgentSummary({
     runId,
@@ -311,6 +326,7 @@ export async function runQualityPipeline(options: PipelineOptions): Promise<Pipe
     results,
     gate,
     policyContext,
+    architectureAudit,
     maxFailureExcerptBytes: effectiveBundle.config.agent_context?.max_failure_excerpt_bytes,
   });
 
@@ -346,6 +362,7 @@ export async function runQualityPipeline(options: PipelineOptions): Promise<Pipe
     risk,
     plan,
     results,
+    architectureAudit,
     gate,
     agentSummary,
   };

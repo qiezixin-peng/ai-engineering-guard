@@ -6,7 +6,8 @@ import {
 } from '../adapters/durable-pi/router.js';
 import { GitAdapter } from '../adapters/git/git-adapter.js';
 import { CoordinatorReceiptAggregator } from '../aggregate/aggregator.js';
-import { evaluatePolicyContext, loadWorkingTreeConfig } from '../config/loader.js';
+import { runArchitectureAudit } from '../audit/architecture-audit.js';
+import { evaluatePolicyContext, loadWorkingTreeConfig, resolveWorkspaceRoot } from '../config/loader.js';
 import {
   AEG_VERSION,
   type AnalysisMode,
@@ -268,6 +269,17 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       },
     },
   },
+  {
+    name: 'audit_architecture',
+    description: '[Read-only] Run full-repository architecture fitness & anti-spaghetti audit (module boundaries, cycles, oversized files, frontend/backend anti-patterns).',
+    annotations: { readOnlyHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string' },
+      },
+    },
+  },
 ];
 
 const SUPPORTED_MCP_PROTOCOLS = new Set(['2024-11-05', '2025-03-26', '2025-06-18']);
@@ -507,6 +519,17 @@ export class AegMcpSession {
           signingSecret: typeof args.signing_secret === 'string' ? args.signing_secret : undefined,
         });
         return agg.aggregate();
+      }
+
+      case 'audit_architecture': {
+        const root = resolveWorkspaceRoot(cwd);
+        const bundle = loadWorkingTreeConfig(root);
+        return runArchitectureAudit({
+          workspaceRoot: root,
+          config: bundle.config,
+          modules: bundle.modules,
+          scope: 'full',
+        });
       }
 
       default:

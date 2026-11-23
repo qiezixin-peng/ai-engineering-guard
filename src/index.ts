@@ -15,6 +15,7 @@ export * from './analyze/diff-analyzer.js';
 export * from './analyze/capability-planner.js';
 export * from './analyze/impact-analyzer.js';
 export * from './analyze/risk-engine.js';
+export * from './audit/architecture-audit.js';
 export * from './cache/cache-engine.js';
 export * from './cache/remote-cache.js';
 export * from './plan/test-planner.js';

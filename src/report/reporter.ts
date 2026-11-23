@@ -4,6 +4,7 @@ import { redactSensitiveText } from '../adapters/command/command-runner.js';
 import type {
   AgentSummary,
   AnalysisMode,
+  ArchitectureAuditResult,
   FailureDetail,
   GateDecision,
   ImpactResult,
@@ -24,9 +25,10 @@ export function buildAgentSummary(params: {
   results: SuiteRunResult[];
   gate: GateDecision;
   policyContext: PolicyEvaluationContext;
+  architectureAudit?: ArchitectureAuditResult;
   maxFailureExcerptBytes?: number;
 }): AgentSummary {
-  const { runId, mode, policy, impact, risk, plan, results, gate, policyContext } = params;
+  const { runId, mode, policy, impact, risk, plan, results, gate, policyContext, architectureAudit } = params;
   const maxExcerpt = params.maxFailureExcerptBytes ?? 4096;
 
   const executed = results.filter((r) => r.disposition === 'execute').length;
@@ -118,6 +120,9 @@ export function buildAgentSummary(params: {
     },
     unknowns: Array.from(new Set([...impact.unknowns, ...plan.unknowns])),
     policy_relaxations: policyContext.relaxations.map((r) => `${r.target}: ${r.reason}`),
+    ...(architectureAudit && architectureAudit.findings.length > 0
+      ? { architecture_hints: architectureAudit.findings }
+      : {}),
     failures,
     agent_action: {
       required: actionRequired,
@@ -242,6 +247,15 @@ export function formatTextReport(report: QualityReport): string {
     lines.push('');
     lines.push('Unknowns / Fallbacks:');
     for (const u of s.unknowns) lines.push(`  ? ${u}`);
+  }
+
+  if (s.architecture_hints && s.architecture_hints.length > 0) {
+    lines.push('');
+    lines.push('Architecture & Maintainability Hints (avoid spaghetti debt):');
+    for (const h of s.architecture_hints) {
+      lines.push(`  * [${h.severity}/${h.ruleId}] ${h.file}${h.line ? `:${h.line}` : ''} — ${h.message}`);
+      lines.push(`    Better approach: ${h.betterApproach}`);
+    }
   }
 
   if (report.plan.suites.length > 0) {

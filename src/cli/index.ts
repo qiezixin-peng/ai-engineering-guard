@@ -22,6 +22,7 @@ Pipeline & Inspection Commands:
   gate                      Run check and enforce a named quality gate policy
   aggregate                 Aggregate multi-platform TestResultReceipts into a final Coordinator gate
   shadow-check              Run budget-controlled shadow full-run validation to measure selection recall
+  audit                     Run architecture fitness & anti-spaghetti audit across the repository
   dashboard                 Generate multi-project quality observability summary (JSON or offline HTML)
   agents config             Print ready-to-use configs for Codex (TOML), Gemini, DeepSeek, and Claude
   agents install            Idempotently inject AEG instructions into repo AGENTS.md / GEMINI.md / CLAUDE.md
@@ -45,6 +46,7 @@ Common Options:
   --no-cache                Bypass exact Git Tree local cache
   --cwd <dir>               Target repository directory (defaults to current directory)
   --force                   Overwrite existing config on 'aeg init'
+  --strict                  Fail with exit code 2 when 'aeg audit' finds error-level architecture issues
   -v, --version             Print AEG version
   -h, --help                Show this help
 
@@ -74,6 +76,7 @@ function parseArgv(argv: string[]): ParsedArgs {
     'no-cache',
     'force',
     'dry-run',
+    'strict',
   ]);
 
   for (let i = 0; i < argv.length; i++) {
@@ -201,6 +204,37 @@ export async function main(argv: string[]): Promise<number> {
         }
       }
       return aggregated.exitCode;
+    }
+
+    if (command === 'audit') {
+      const { runArchitectureAudit } = await import('../audit/architecture-audit.js');
+      const { loadWorkingTreeConfig, resolveWorkspaceRoot } = await import('../config/loader.js');
+      const root = resolveWorkspaceRoot(cwd);
+      const bundle = loadWorkingTreeConfig(root);
+      const auditRes = runArchitectureAudit({
+        workspaceRoot: root,
+        config: bundle.config,
+        modules: bundle.modules,
+        scope: 'full',
+      });
+      if (format === 'json' || format === 'agent-summary') {
+        process.stdout.write(`${JSON.stringify(auditRes, null, 2)}\n`);
+      } else {
+        process.stdout.write(
+          `AEG Architecture Audit (${auditRes.scannedFiles} file(s) scanned) — errors=${auditRes.summary.errors}, warnings=${auditRes.summary.warnings}, info=${auditRes.summary.info}\n`,
+        );
+        if (auditRes.externalToolsDetected.length > 0) {
+          process.stdout.write(`  External tools detected: ${auditRes.externalToolsDetected.join(', ')}\n`);
+        }
+        for (const f of auditRes.findings) {
+          process.stdout.write(`  [${f.severity}/${f.ruleId}] ${f.file}${f.line ? `:${f.line}` : ''} — ${f.message}\n`);
+          process.stdout.write(`    -> Better approach: ${f.betterApproach}\n`);
+        }
+      }
+      if (flags.strict === true && auditRes.summary.errors > 0) {
+        return EXIT_CODES.GATE_FAILED;
+      }
+      return EXIT_CODES.OK;
     }
 
     if (command === 'shadow-check') {

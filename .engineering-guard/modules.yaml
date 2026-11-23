@@ -31,6 +31,7 @@ modules:
   analyze:
     paths:
       - src/analyze/**
+      - src/audit/**
     depends_on: [domain, config]
     criticality: high
 

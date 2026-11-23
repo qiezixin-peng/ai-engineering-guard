@@ -596,8 +596,9 @@ describe('Phase 3: Durable Pi Cross-Device Matrix, Receipt Aggregator & Live Std
       expect(initResp.result.serverInfo.name).toBe('ai-engineering-guard');
 
       const listResp = responses.find((r) => r.id === 2) as { result: { tools: Array<{ name: string }> } };
-      expect(listResp.result.tools.length).toBe(16);
+      expect(listResp.result.tools.length).toBe(17);
       expect(listResp.result.tools.map((t) => t.name)).toContain('aggregate_gate_results');
+      expect(listResp.result.tools.map((t) => t.name)).toContain('audit_architecture');
 
       const gateResp = responses.find((r) => r.id === 3) as {
         result: { isError: boolean; content: Array<{ text: string }> };
