@@ -4,6 +4,7 @@ import YAML from 'yaml';
 import { GUARD_DIR } from '../config/loader.js';
 import { validateProjectConfigs } from '../config/schema-validator.js';
 import type { AegConfig, ModulesConfig, TestsConfig } from '../domain/types.js';
+import { registerIntegratedProject } from './agents.js';
 
 export interface InitOptions {
   workspaceRoot: string;
@@ -278,6 +279,12 @@ export function initProject(options: InitOptions): InitResult {
   } else {
     fs.writeFileSync(gitignorePath, '.aeg/\n', 'utf8');
     updatedGitignore = true;
+  }
+
+  try {
+    registerIntegratedProject(root);
+  } catch {
+    // non-fatal
   }
 
   return {

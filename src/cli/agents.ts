@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PACKAGE_ROOT } from '../config/schema-validator.js';
 
@@ -179,6 +180,107 @@ export function installRepoAgentInstructions(params: {
   }
 
   return { workspaceRoot: root, updatedFiles, unchangedFiles };
+}
+
+function getRegistryPath(): string {
+  const baseDir = process.env.AEG_HOME || path.join(os.homedir(), '.aeg');
+  return path.join(baseDir, 'projects.json');
+}
+
+export function registerIntegratedProject(workspaceRoot: string): void {
+  const absRoot = path.resolve(workspaceRoot);
+  if (!fs.existsSync(path.join(absRoot, '.engineering-guard', 'config.yaml'))) {
+    return;
+  }
+  const regPath = getRegistryPath();
+  let projects: string[] = [];
+  if (fs.existsSync(regPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(regPath, 'utf8')) as { projects?: string[] };
+      if (Array.isArray(parsed.projects)) projects = parsed.projects;
+    } catch {
+      projects = [];
+    }
+  }
+  if (!projects.includes(absRoot)) {
+    projects.push(absRoot);
+    fs.mkdirSync(path.dirname(regPath), { recursive: true });
+    fs.writeFileSync(regPath, JSON.stringify({ projects: projects.sort() }, null, 2), 'utf8');
+  }
+}
+
+export function listRegisteredProjects(): string[] {
+  const regPath = getRegistryPath();
+  if (!fs.existsSync(regPath)) return [];
+  try {
+    const parsed = JSON.parse(fs.readFileSync(regPath, 'utf8')) as { projects?: string[] };
+    return Array.isArray(parsed.projects) ? parsed.projects : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Automatically updates AGENTS.md / GEMINI.md / CLAUDE.md in `workspaceRoot` ONLY if they
+ * already contain AEG's managed `<!-- AEG:START --> ... <!-- AEG:END -->` block and are outdated.
+ * Safe to call during local `aeg check` without creating unwanted files.
+ */
+export function syncManagedAgentInstructionsIfPresent(workspaceRoot: string): AgentInstallResult {
+  const root = path.resolve(workspaceRoot);
+  const targets = ['AGENTS.md', 'GEMINI.md', 'CLAUDE.md'];
+  const block = generateAgentConfigBundle('codex').codex!.instructionMarkdown;
+  const updatedFiles: string[] = [];
+  const unchangedFiles: string[] = [];
+
+  for (const filename of targets) {
+    const absPath = path.join(root, filename);
+    if (!fs.existsSync(absPath)) continue;
+
+    const existing = fs.readFileSync(absPath, 'utf8');
+    const startIdx = existing.indexOf(START_MARKER);
+    const endIdx = existing.indexOf(END_MARKER);
+    if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) continue;
+
+    const nextContent =
+      existing.slice(0, startIdx) + block + existing.slice(endIdx + END_MARKER.length);
+    if (nextContent === existing) {
+      unchangedFiles.push(absPath);
+    } else {
+      fs.writeFileSync(absPath, nextContent, 'utf8');
+      updatedFiles.push(absPath);
+    }
+  }
+
+  return { workspaceRoot: root, updatedFiles, unchangedFiles };
+}
+
+export interface SyncAllResult {
+  totalProjects: number;
+  updatedProjects: Array<{ path: string; updatedFiles: string[] }>;
+  skippedMissing: string[];
+}
+
+export function syncAllRegisteredProjects(): SyncAllResult {
+  const projects = listRegisteredProjects();
+  const updatedProjects: Array<{ path: string; updatedFiles: string[] }> = [];
+  const skippedMissing: string[] = [];
+
+  for (const proj of projects) {
+    if (!fs.existsSync(path.join(proj, '.engineering-guard', 'config.yaml'))) {
+      skippedMissing.push(proj);
+      continue;
+    }
+    const res = syncManagedAgentInstructionsIfPresent(proj);
+    if (res.updatedFiles.length > 0) {
+      updatedProjects.push({ path: proj, updatedFiles: res.updatedFiles });
+    }
+  }
+
+  return {
+    totalProjects: projects.length,
+    updatedProjects,
+    skippedMissing,
+  };
 }
 
 export function formatAgentConfigText(bundle: AgentConfigBundle): string {

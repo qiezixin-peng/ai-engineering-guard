@@ -4,7 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runStructuredCommand } from '../../src/adapters/command/command-runner.js';
-import { generateAgentConfigBundle, installRepoAgentInstructions } from '../../src/cli/agents.js';
+import {
+  generateAgentConfigBundle,
+  installRepoAgentInstructions,
+  listRegisteredProjects,
+  registerIntegratedProject,
+  syncAllRegisteredProjects,
+} from '../../src/cli/agents.js';
 import { PACKAGE_ROOT } from '../../src/config/schema-validator.js';
 import { runQualityPipeline } from '../../src/engine.js';
 
@@ -184,5 +190,53 @@ describe('Universal Multi-Agent Compatibility (Gemini / Codex / DeepSeek / Claud
     expect(out.status).toBe('timeout');
     expect(out.durationMs).toBeLessThan(1200);
     expect(elapsedMs).toBeLessThan(1500);
+  });
+
+  it('auto-syncs outdated managed agent blocks on local check and via syncAllRegisteredProjects', async () => {
+    const dir = createGitRepo('aeg-autosync-');
+    const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aeg-home-'));
+    tempDirs.push(fakeHome);
+    const prevAegHome = process.env.AEG_HOME;
+    process.env.AEG_HOME = fakeHome;
+
+    try {
+      fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+      fs.mkdirSync(path.join(dir, '.engineering-guard'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'src/a.ts'), 'export const a = 1;\n');
+      fs.writeFileSync(path.join(dir, '.engineering-guard/config.yaml'), 'schema_version: 1\nproject: { name: sync-demo, baseline_ref: main }\n');
+      fs.writeFileSync(path.join(dir, '.engineering-guard/modules.yaml'), 'schema_version: 1\nmodules: { core: { paths: [src/**] } }\n');
+      fs.writeFileSync(
+        path.join(dir, '.engineering-guard/tests.yaml'),
+        'schema_version: 1\nsuites: { unit: { framework: command, command: { executable: node, args: [-e, "process.exit(0)"] }, covers: [core], level: unit } }\n',
+      );
+      fs.writeFileSync(path.join(dir, '.gitignore'), '.aeg/\n');
+      fs.writeFileSync(
+        path.join(dir, 'AGENTS.md'),
+        '# Custom Header\n\n<!-- AEG:START -->\nOLD OUTDATED BLOCK\n<!-- AEG:END -->\n',
+      );
+      execFileSync('git', ['add', '-A'], { cwd: dir, windowsHide: true });
+      execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, windowsHide: true });
+
+      // 1. Local check auto-registers and auto-updates outdated managed block while preserving Custom Header
+      await runQualityPipeline({ workspaceRoot: dir, policy: 'local' });
+      const updatedAgents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+      expect(updatedAgents).toContain('# Custom Header');
+      expect(updatedAgents).not.toContain('OLD OUTDATED BLOCK');
+      expect(updatedAgents).toContain('Built-in Quality & Handoff Protocol');
+      expect(listRegisteredProjects()).toContain(path.resolve(dir));
+
+      // 2. If reverted to outdated, syncAllRegisteredProjects updates all registered projects at once
+      fs.writeFileSync(
+        path.join(dir, 'AGENTS.md'),
+        '# Custom Header\n\n<!-- AEG:START -->\nOLD AGAIN\n<!-- AEG:END -->\n',
+      );
+      registerIntegratedProject(dir);
+      const syncRes = syncAllRegisteredProjects();
+      expect(syncRes.updatedProjects.some((p) => p.path === path.resolve(dir))).toBe(true);
+      expect(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8')).toContain('Built-in Quality & Handoff Protocol');
+    } finally {
+      if (prevAegHome === undefined) delete process.env.AEG_HOME;
+      else process.env.AEG_HOME = prevAegHome;
+    }
   });
 });

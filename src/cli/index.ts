@@ -25,6 +25,7 @@ Pipeline & Inspection Commands:
   dashboard                 Generate multi-project quality observability summary (JSON or offline HTML)
   agents config             Print ready-to-use configs for Codex (TOML), Gemini, DeepSeek, and Claude
   agents install            Idempotently inject AEG instructions into repo AGENTS.md / GEMINI.md / CLAUDE.md
+  agents sync-all           Sync latest AEG instructions across all integrated projects on this machine
   mcp                       Start stdio MCP Server (JSON-RPC 2.0, dual-framing, model-agnostic)
   inspect failure [id]      Show structured failure details from the latest (or --run) run
   inspect log <id>          Read a bounded, secret-redacted log excerpt for a failure artifact
@@ -271,15 +272,33 @@ export async function main(argv: string[]): Promise<number> {
         formatAgentConfigText,
         generateAgentConfigBundle,
         installRepoAgentInstructions,
+        registerIntegratedProject,
+        syncAllRegisteredProjects,
       } = await import('./agents.js');
       if (subcommand === 'install') {
         const res = installRepoAgentInstructions({ workspaceRoot: cwd });
+        registerIntegratedProject(cwd);
         if (format === 'json' || format === 'agent-summary') {
           process.stdout.write(`${JSON.stringify(res, null, 2)}\n`);
         } else {
           process.stdout.write(`Installed AEG instructions in ${res.workspaceRoot}:\n`);
           for (const f of res.updatedFiles) process.stdout.write(`  [updated]   ${f}\n`);
           for (const f of res.unchangedFiles) process.stdout.write(`  [unchanged] ${f}\n`);
+        }
+        return EXIT_CODES.OK;
+      }
+
+      if (subcommand === 'sync-all') {
+        const res = syncAllRegisteredProjects();
+        if (format === 'json' || format === 'agent-summary') {
+          process.stdout.write(`${JSON.stringify(res, null, 2)}\n`);
+        } else {
+          process.stdout.write(
+            `Synced ${res.updatedProjects.length} of ${res.totalProjects} registered project(s).\n`,
+          );
+          for (const p of res.updatedProjects) {
+            process.stdout.write(`  [updated] ${p.path} (${p.updatedFiles.length} file(s))\n`);
+          }
         }
         return EXIT_CODES.OK;
       }

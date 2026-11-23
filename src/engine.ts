@@ -17,6 +17,7 @@ import {
 import { assessRisk } from './analyze/risk-engine.js';
 import { CacheEngine } from './cache/cache-engine.js';
 import { RemoteCacheClient } from './cache/remote-cache.js';
+import { registerIntegratedProject, syncManagedAgentInstructionsIfPresent } from './cli/agents.js';
 import { evaluatePolicyContext, resolveWorkspaceRoot } from './config/loader.js';
 import { currentPlatform, generateRunId, getDeviceId, sha256 } from './domain/hash.js';
 import {
@@ -112,6 +113,18 @@ export async function runQualityPipeline(options: PipelineOptions): Promise<Pipe
   const workspaceRoot = resolveWorkspaceRoot(options.workspaceRoot);
   const git = new GitAdapter(workspaceRoot);
   const runId = generateRunId();
+
+  // Auto-register integrated project and keep managed AEG blocks synced in local mode
+  // (Skipped in strict delivery/release/pull-request/planOnly modes so clean-worktree gates are never dirtied mid-run)
+  try {
+    registerIntegratedProject(workspaceRoot);
+    const requestedPolicy = options.policy ?? 'local';
+    if (requestedPolicy === 'local' && !options.planOnly && !options.planFilePath) {
+      syncManagedAgentInstructionsIfPresent(workspaceRoot);
+    }
+  } catch {
+    // non-fatal auto-sync
+  }
 
   // 1. Load candidate + protected baseline PolicySnapshot (once per run)
   const policyContext = evaluatePolicyContext(workspaceRoot, git, options.base);
